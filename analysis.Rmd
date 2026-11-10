@@ -1,0 +1,257 @@
+---
+title: "Simulations and figures"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r packages}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggpubr)
+library(patchwork)
+
+red <- "#B22222"
+green <- "#1D6F42"
+
+# reliability of the score
+rel <- 0.7
+
+# annotation text size
+txt <- 12 / .pt
+
+theme_set(theme_pubr(base_size = 14) + theme(legend.title = element_blank()))
+```
+
+## Figure 1
+
+```{r figure1, fig.width=11.5, fig.height=5.625}
+cutoff <- qnorm(0.2)
+
+dens <- tibble(x = seq(-3.5, 3.5, length.out = 601)) %>%
+  mutate(y = dnorm(x))
+
+# draws a little stick child at x0
+stick_child <- function(x0, colour, y0 = 0.006, h = 0.045, stretch = 16) {
+  w <- h * stretch
+
+  head <- tibble(t = seq(0, 2 * pi, length.out = 60)) %>%
+    mutate(x = x0 + 0.2 * w * cos(t),
+           y = y0 + h * (0.78 + 0.2 * sin(t)))
+
+  limbs <- tibble(x = 0,
+                  y = c(0.58, 0.5, 0.5, 0.26, 0.26),
+                  xend = c(0, -0.24, 0.24, -0.15, 0.15),
+                  yend = c(0.26, 0.32, 0.32, 0, 0)) %>%
+    mutate(x = x0 + w * x,
+           xend = x0 + w * xend,
+           y = y0 + h * y,
+           yend = y0 + h * yend)
+
+  list(
+    geom_segment(data = limbs, aes(x, y, xend = xend, yend = yend),
+                 colour = colour, linewidth = 0.9, lineend = "round",
+                 inherit.aes = FALSE),
+    geom_polygon(data = head, aes(x, y), fill = "white", colour = colour,
+                 linewidth = 0.9, inherit.aes = FALSE)
+  )
+}
+
+p1 <- dens %>%
+  ggplot(aes(x, y)) +
+  geom_area(data = filter(dens, x <= cutoff), fill = red, alpha = 0.25) +
+  geom_area(data = filter(dens, x >= cutoff), fill = green, alpha = 0.25) +
+  geom_line(linewidth = 0.9) +
+  geom_vline(xintercept = cutoff, linetype = "dashed") +
+  stick_child(cutoff - 0.25, red) +
+  stick_child(cutoff + 0.25, green) +
+  annotate("segment", x = -2.3, y = 0.19, xend = cutoff - 0.3, yend = 0.065,
+           colour = "grey50", linewidth = 0.3) +
+  annotate("text", x = -2.4, y = 0.23, label = "Near-identical children,\nopposite labels",
+           size = txt, vjust = 0, colour = "grey30", lineheight = 0.95) +
+  annotate("text", x = cutoff - 0.1, y = 0.41, label = "Threshold c",
+           hjust = 1, size = txt) +
+  annotate("text", x = -2.9, y = 0.1, label = "Coal", colour = red,
+           fontface = "bold", size = txt) +
+  annotate("text", x = 0.95, y = 0.1, label = "Gift", colour = green,
+           fontface = "bold", size = txt) +
+  labs(x = "Observed conduct score, X", y = "Density")
+
+# correlation kept at each split
+retained <- function(p) dnorm(qnorm(p)) / sqrt(p * (1 - p))
+
+p2 <- tibble(p = seq(0.02, 0.98, length.out = 601)) %>%
+  mutate(kept = retained(p)) %>%
+  ggplot(aes(p, kept)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", colour = "grey70", linewidth = 0.3) +
+  geom_line(linewidth = 1) +
+  annotate("point", x = 0.5, y = sqrt(2 / pi), colour = green, size = 3) +
+  annotate("text", x = 0.53, y = 0.87, label = "Median split\n≈ 0.80",
+           colour = green, hjust = 0, size = txt, lineheight = 0.95) +
+  annotate("point", x = 0.1, y = retained(0.1), colour = red, size = 3) +
+  annotate("text", x = 0.13, y = 0.52, label = "Tail split\n(high-risk cut)",
+           colour = red, hjust = 0, size = txt, lineheight = 0.95) +
+  scale_y_continuous(limits = c(0, 0.92)) +
+  labs(x = "Proportion classified 'naughty', q",
+       y = expression("Correlation retained, " * italic(r)[pb] / rho))
+
+p1 + p2
+```
+
+## Figure 2
+
+```{r simulate}
+set.seed(1225)
+
+# christmas day 2026
+n_sim <- 251226
+
+v_eps <- 1 - rel
+v_u <- 0.15
+
+noise <- function(v) rnorm(n_sim, 0, sqrt(v))
+
+kids <- tibble(theta = noise(rel)) %>%
+  mutate(
+    truth = theta < quantile(theta, 0.2),
+
+    # both read the same logbook
+    logbook = theta + noise(v_eps),
+    santa_same = logbook + noise(v_u),
+    elf_same = logbook + noise(v_u),
+
+    # each makes fresh observations
+    santa_fresh = theta + noise(v_eps) + noise(v_u),
+    elf_fresh = theta + noise(v_eps) + noise(v_u),
+
+    # two logbooks, each read by both
+    logbook_a = theta + noise(v_eps),
+    logbook_b = theta + noise(v_eps),
+    list_a = (logbook_a + noise(v_u)) + (logbook_a + noise(v_u)),
+    list_b = (logbook_b + noise(v_u)) + (logbook_b + noise(v_u))
+  )
+
+# worst fifth goes on the list
+naughty <- function(score) score < quantile(score, 0.2)
+```
+
+```{r results}
+labels <- c(one = "One list",
+            same = "Two assessors,\nsame logbook",
+            fresh = "Two assessors,\nfresh observations",
+            two = "Two logbooks,\neach checked twice")
+
+agreement <- kids %>%
+  summarise(same = sum(naughty(santa_same) == naughty(elf_same)),
+            fresh = sum(naughty(santa_fresh) == naughty(elf_fresh)),
+            two = sum(naughty(list_a) == naughty(list_b))) %>%
+  pivot_longer(everything(), names_to = "scenario", values_to = "agree") %>%
+  mutate(total = n_sim,
+         value = agree / total,
+         label = factor(labels[scenario], levels = rev(labels)))
+
+# scores are added together before cutting
+accuracy <- kids %>%
+  transmute(truth,
+            one = santa_same,
+            same = santa_same + elf_same,
+            fresh = santa_fresh + elf_fresh,
+            two = list_a + list_b) %>%
+  pivot_longer(one:two, names_to = "scenario", values_to = "score") %>%
+  group_by(scenario) %>%
+  filter(naughty(score)) %>%
+  summarise(correct = sum(truth),
+            on_list = n(),
+            value = mean(truth)) %>%
+  mutate(label = factor(labels[scenario], levels = rev(labels)))
+
+agreement %>% select(scenario, agree, total, value)
+accuracy %>% select(scenario, correct, on_list, value)
+```
+
+```{r figure2, fig.width=10, fig.height=5.625}
+bars <- function(data, title) {
+  data %>%
+    ggplot(aes(value, label, fill = scenario)) +
+    geom_col(width = 0.62) +
+    geom_text(aes(label = sprintf("%.0f%%", 100 * value)), hjust = -0.15, size = txt) +
+    scale_fill_manual(values = c(one = "grey45", same = red, fresh = green, two = green),
+                      guide = "none") +
+    scale_x_continuous(labels = function(x) paste0(100 * x, "%"),
+                       limits = c(0, 1.08), breaks = seq(0, 1, 0.25),
+                       expand = c(0, 0)) +
+    scale_y_discrete(drop = FALSE) +
+    labs(title = title, x = NULL, y = NULL) +
+    theme(plot.title = element_text(size = 14, face = "plain"),
+          plot.title.position = "plot")
+}
+
+bars(agreement, "How often the two lists agree") +
+  annotate("text", x = 0.02, y = "One list", label = "No second list",
+           hjust = 0, size = txt, colour = "grey45") +
+  bars(accuracy, "Children on the list who are truly naughty") +
+  theme(axis.text.y = element_blank())
+```
+
+## Figure 3
+
+```{r simulate3}
+set.seed(45)
+
+threshold <- -1
+
+children <- tibble(theta = rnorm(400, 0, sqrt(rel))) %>%
+  mutate(year1 = theta + rnorm(n(), 0, sqrt(1 - rel)),
+         year2 = theta + rnorm(n(), 0, sqrt(1 - rel)),
+         group = case_when(year1 >= threshold ~ "All other children",
+                           year2 < threshold ~ "Naughty in both years",
+                           TRUE ~ "Naughty in year 1, nice in year 2"))
+
+children %>% count(group)
+```
+
+```{r figure3, fig.width=8, fig.height=8}
+lines <- tibble(slope = c(1, rel),
+                intercept = 0,
+                what = c("Line of equality", "Regression line (slope R = 0.7)"))
+
+children %>%
+  ggplot(aes(year1, year2)) +
+  geom_vline(xintercept = threshold, colour = red, linetype = "dashed", linewidth = 0.4) +
+  geom_hline(yintercept = threshold, colour = red, linetype = "dashed", linewidth = 0.4) +
+  geom_abline(data = lines, aes(slope = slope, intercept = intercept,
+                                colour = what, linewidth = what)) +
+  geom_point(aes(colour = group, shape = group), size = 2.2, alpha = 0.9, stroke = 0.8) +
+  annotate("text", x = 3.25, y = threshold - 0.1, hjust = 1, vjust = 1,
+           label = "Threshold, year 2", colour = red, size = txt) +
+  annotate("text", x = threshold + 0.1, y = -3.15, hjust = 0, vjust = 0,
+           label = "Threshold, year 1", colour = red, size = txt) +
+  scale_colour_manual(
+    breaks = c("All other children", "Naughty in both years",
+               "Naughty in year 1, nice in year 2", "Line of equality",
+               "Regression line (slope R = 0.7)"),
+    values = c("All other children" = "grey72",
+               "Naughty in both years" = red,
+               "Naughty in year 1, nice in year 2" = green,
+               "Line of equality" = "grey55",
+               "Regression line (slope R = 0.7)" = "black")
+  ) +
+  scale_shape_manual(values = c("All other children" = 16,
+                                "Naughty in both years" = 17,
+                                "Naughty in year 1, nice in year 2" = 1),
+                     guide = "none") +
+  scale_linewidth_manual(values = c("Line of equality" = 0.4,
+                                    "Regression line (slope R = 0.7)" = 1.1),
+                         guide = "none") +
+  guides(colour = guide_legend(nrow = 2, byrow = TRUE,
+                               override.aes = list(shape = c(16, 17, 1, NA, NA),
+                                                   linetype = c(0, 0, 0, 1, 1),
+                                                   linewidth = c(NA, NA, NA, 0.4, 1.1)))) +
+  coord_cartesian(xlim = c(-3.3, 3.3), ylim = c(-3.2, 3.2)) +
+  labs(x = "Conduct score, year 1 (SD; lower = naughtier)",
+       y = "Conduct score, year 2 (SD)") +
+  theme(aspect.ratio = 1, axis.title = element_text(face = "plain"))
+```
