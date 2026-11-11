@@ -68,9 +68,9 @@ p1 <- dens %>%
   geom_vline(xintercept = cutoff, linetype = "dashed") +
   stick_child(cutoff - 0.25, red) +
   stick_child(cutoff + 0.25, green) +
-  annotate("segment", x = -2.3, y = 0.19, xend = cutoff - 0.3, yend = 0.065,
+  annotate("segment", x = -2.15, y = 0.275, xend = cutoff - 0.3, yend = 0.065,
            colour = "grey50", linewidth = 0.3) +
-  annotate("text", x = -2.4, y = 0.23, label = "Near-identical children,\nopposite labels",
+  annotate("text", x = -2.15, y = 0.285, label = "Near-identical children,\nopposite labels",
            size = txt, vjust = 0, colour = "grey30", lineheight = 0.95) +
   annotate("text", x = cutoff - 0.1, y = 0.41, label = "Threshold c",
            hjust = 1, size = txt) +
@@ -95,7 +95,7 @@ p2 <- tibble(p = seq(0.02, 0.98, length.out = 601)) %>%
   annotate("point", x = 0.1, y = retained(0.1), colour = red, size = 3) +
   annotate("text", x = 0.13, y = 0.52, label = "Tail split\n(high-risk cut)",
            colour = red, hjust = 0, size = txt, lineheight = 0.95) +
-  scale_y_continuous(limits = c(0, 0.92)) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 0.92), expand = FALSE, clip = "off") +
   labs(x = "Proportion classified 'naughty', q",
        y = expression("Correlation retained, " * italic(r)[pb] / rho))
 
