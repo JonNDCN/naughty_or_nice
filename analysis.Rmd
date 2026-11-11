@@ -78,6 +78,7 @@ p1 <- dens %>%
            fontface = "bold", size = txt) +
   annotate("text", x = 0.95, y = 0.1, label = "Gift", colour = green,
            fontface = "bold", size = txt) +
+  coord_cartesian(xlim = c(-3.5, 3.5), ylim = c(0, 0.43), expand = FALSE, clip = "off") +
   labs(x = "Observed conduct score, X", y = "Density")
 
 # correlation kept at each split
