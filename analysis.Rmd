@@ -74,9 +74,9 @@ p1 <- dens %>%
            size = txt, vjust = 0, colour = "grey30", lineheight = 0.95) +
   annotate("text", x = cutoff - 0.1, y = 0.41, label = "Threshold c",
            hjust = 1, size = txt) +
-  annotate("text", x = -2.9, y = 0.1, label = "Coal", colour = red,
+  annotate("text", x = -2.4, y = 0.1, label = "Coal", colour = red,
            fontface = "bold", size = txt) +
-  annotate("text", x = 0.95, y = 0.1, label = "Gift", colour = green,
+  annotate("text", x = 0.4, y = 0.1, label = "Gift", colour = green,
            fontface = "bold", size = txt) +
   coord_cartesian(xlim = c(-3.5, 3.5), ylim = c(0, 0.43), expand = FALSE, clip = "off") +
   labs(x = "Observed conduct score, X", y = "Density")
